@@ -1,0 +1,2 @@
+anikoto>=8.2
+PySide6-Essentials>=6.5
