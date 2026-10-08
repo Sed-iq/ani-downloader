@@ -626,6 +626,7 @@ class Window(QMainWindow):
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName(APP)
+    app.setDesktopFileName("kotodl")  # ties the window to kotodl.desktop (icon on Wayland)
     classic(app)
     window = Window()
     window.show()

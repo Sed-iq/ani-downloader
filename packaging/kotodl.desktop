@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Anikoto Downloader
+GenericName=Anime Downloader
+Comment=Bulk-download English-dubbed anime from Anikoto
+Exec=kotodl
+Icon=kotodl
+Terminal=false
+Categories=Network;AudioVideo;Video;
+Keywords=anime;dub;download;anikoto;
+StartupWMClass=kotodl

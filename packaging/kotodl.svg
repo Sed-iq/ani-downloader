@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" shape-rendering="crispEdges">
+  <!-- Win2k-style raised button face -->
+  <rect x="2" y="2" width="60" height="60" fill="#d4d0c8"/>
+  <path d="M2 62V2h60" fill="none" stroke="#ffffff" stroke-width="2"/>
+  <path d="M2 62h60V2" fill="none" stroke="#404040" stroke-width="2"/>
+  <path d="M5 59h54V5" fill="none" stroke="#808080" stroke-width="2"/>
+  <!-- down arrow into a tray -->
+  <path d="M26 12h12v18h9L32 46 17 30h9z" fill="#0a246a"/>
+  <rect x="14" y="50" width="36" height="5" fill="#000000"/>
+</svg>

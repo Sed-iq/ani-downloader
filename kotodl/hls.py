@@ -16,8 +16,11 @@ class Cancelled(Exception):
     pass
 
 
-def download(playlist_url, referer, dest, progress=None, cancel=None, workers=8, retries=3):
-    """Save the stream at `dest`. progress(done, total, nbytes) is called after each segment."""
+def download(playlist_url, referer, dest, progress=None, cancel=None, workers=8, retries=8):
+    """Save the stream at `dest`. progress(done, total, nbytes) is called after each segment,
+    nbytes counting only what this run fetched.
+
+    A failed or stopped download leaves `dest`.part.ts behind, and the next call resumes it."""
     if not shutil.which("ffmpeg"):
         raise RuntimeError("ffmpeg not found")
     cancel = cancel or threading.Event()
@@ -52,18 +55,22 @@ def download(playlist_url, referer, dest, progress=None, cancel=None, workers=8,
             try:
                 data = get(segment.absolute_uri).content
                 break
-            except Exception:
+            except Exception as e:
                 if attempt == retries - 1:
                     raise
+                # Back off, so a rate limit (429) gets time to lift instead of eating every retry.
+                if cancel.wait(_retry_after(e) or min(2 ** attempt, 30)):
+                    raise Cancelled
         if data.startswith(PNG_SIG):
             end = data.find(b"IEND")
             if end != -1:
                 data = data[end + 8:]  # 'IEND' + CRC
         return data
 
-    ts = dest + ".part.ts"
+    ts, mark = dest + ".part.ts", dest + ".part.ts.done"
+    start, offset = _resume_point(ts, mark, len(segments))
     pool = ThreadPoolExecutor(workers)
-    queue, pending = iter(segments), deque()
+    queue, pending = iter(segments[start:]), deque()
 
     def submit():
         segment = next(queue, None)
@@ -73,23 +80,55 @@ def download(playlist_url, referer, dest, progress=None, cancel=None, workers=8,
     try:
         for _ in range(workers * 2):  # bounded window keeps memory flat
             submit()
-        done = size = 0
-        with open(ts, "wb") as out:
+        done, size = start, 0
+        with open(ts, "r+b" if start else "wb") as out:
+            out.truncate(offset)  # drop a segment half-written when the last run died
+            out.seek(offset)
             while pending:
                 data = pending.popleft().result()
                 if cancel.is_set():
                     raise Cancelled
                 out.write(data)
+                out.flush()
                 done += 1
                 size += len(data)
+                _write_mark(mark, done, len(segments), out.tell())
                 if progress:
                     progress(done, len(segments), size)
                 submit()
         _remux(ts, dest)
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
-        if os.path.exists(ts):
-            os.remove(ts)
+    os.remove(ts)
+    os.remove(mark)
+
+
+def _retry_after(error):
+    """Seconds a 429/503 response asks us to wait, if it says."""
+    response = getattr(error, "response", None)
+    try:
+        return min(float(response.headers.get("retry-after")), 60)
+    except (AttributeError, TypeError, ValueError):
+        return None
+
+
+def _resume_point(ts, mark, total):
+    """(segments, bytes) already saved by an earlier run of the same stream, else (0, 0)."""
+    try:
+        with open(mark) as f:
+            done, count, offset = map(int, f.read().split())
+    except (OSError, ValueError):
+        return 0, 0
+    if count != total or done > total or not os.path.exists(ts) or os.path.getsize(ts) < offset:
+        return 0, 0
+    return done, offset
+
+
+def _write_mark(mark, done, total, offset):
+    tmp = mark + ".tmp"
+    with open(tmp, "w") as f:
+        f.write(f"{done} {total} {offset}\n")
+    os.replace(tmp, mark)
 
 
 def _remux(src, dest):
