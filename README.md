@@ -22,7 +22,7 @@ packaging/build-deb.sh                      # -> dist/kotodl_1.0.0_amd64.deb
 sudo apt install ./dist/kotodl_1.0.0_amd64.deb
 ```
 
-CI (`.github/workflows/build.yml`) builds every push for Linux (`.deb`), Windows (`.zip`) and macOS (`.dmg`, Apple Silicon); grab them from the run's artifacts. Pushing a `v*` tag publishes them as a release. On Windows and macOS, install `ffmpeg` yourself and put it on `PATH`. The macOS app is unsigned, so open it with right-click → Open the first time.
+CI (`.github/workflows/build.yml`) builds every push for Linux (`.deb`), Windows (`.zip`) and macOS (`.dmg`, Apple Silicon). Each push to `main` publishes them as a new GitHub release (`v1.0.<run number>`); pushing a `v*` tag releases under that tag instead. Other branches only keep them as run artifacts. On Windows and macOS, install `ffmpeg` yourself and put it on `PATH`. The macOS app is unsigned, so open it with right-click → Open the first time.
 
 ## Notes
 

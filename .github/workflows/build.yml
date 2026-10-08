@@ -1,7 +1,9 @@
 name: Build
 
-# Every push builds Linux (.deb), Windows (.zip) and macOS (.dmg) and uploads them as run artifacts.
-# A pushed `v*` tag (e.g. v1.2.0) also publishes them as a GitHub release.
+# Every push builds Linux (.deb), Windows (.zip) and macOS (.dmg).
+# Pushes to main publish them as a new release, v<BASE_VERSION>.<run number> (e.g. v1.0.42).
+# A pushed `v*` tag (e.g. v1.2.0) publishes a release under that tag instead.
+# Other branches only build; the files stay in the run's artifacts.
 on:
   push:
     branches: ["**"]
@@ -13,20 +15,30 @@ permissions:
 
 env:
   PYTHON_VERSION: "3.12"
+  BASE_VERSION: "1.0"              # bump for a new minor/major line; the run number is the patch
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - id: v
+        shell: bash
+        run: |
+          if [[ $GITHUB_REF == refs/tags/v* ]]; then v=${GITHUB_REF_NAME#v}; else v=$BASE_VERSION.$GITHUB_RUN_NUMBER; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
   linux:
+    needs: version
     runs-on: ubuntu-22.04            # older glibc, so the .deb also installs on older distros
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - name: Version
-        shell: bash
-        run: |
-          if [[ $GITHUB_REF == refs/tags/v* ]]; then v=${GITHUB_REF_NAME#v}; else v=0.0.$GITHUB_RUN_NUMBER; fi
-          echo "VERSION=$v" >> "$GITHUB_ENV"
       - name: Build .deb
         run: packaging/build-deb.sh
       - name: Smoke test
@@ -41,7 +53,10 @@ jobs:
           if-no-files-found: error
 
   windows:
+    needs: version
     runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -57,7 +72,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
-          Compress-Archive -Path build/pyi-dist/kotodl -DestinationPath dist/kotodl-windows-x64.zip
+          Compress-Archive -Path build/pyi-dist/kotodl -DestinationPath "dist/kotodl-$env:VERSION-windows-x64.zip"
       - uses: actions/upload-artifact@v7
         with:
           name: kotodl-windows
@@ -65,7 +80,10 @@ jobs:
           if-no-files-found: error
 
   macos:
+    needs: version
     runs-on: macos-latest            # Apple Silicon (arm64)
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -81,7 +99,7 @@ jobs:
         run: |
           mkdir -p dist
           hdiutil create -volname "Anikoto Downloader" -srcfolder build/pyi-dist/kotodl.app \
-            -ov -format UDZO dist/kotodl-macos-arm64.dmg
+            -ov -format UDZO "dist/kotodl-$VERSION-macos-arm64.dmg"
       - uses: actions/upload-artifact@v7
         with:
           name: kotodl-macos
@@ -89,8 +107,8 @@ jobs:
           if-no-files-found: error
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [linux, windows, macos]
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    needs: [version, linux, windows, macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -101,5 +119,9 @@ jobs:
           merge-multiple: true
       - uses: softprops/action-gh-release@v3
         with:
+          tag_name: v${{ needs.version.outputs.version }}
+          name: Anikoto Downloader ${{ needs.version.outputs.version }}
+          target_commitish: ${{ github.sha }}
           files: dist/*
           generate_release_notes: true
+          make_latest: true
