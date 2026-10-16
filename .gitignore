@@ -1,12 +1,12 @@
 task.md
 
 # venv lives in the project root
-bin/
-include/
-lib/
-lib64
-share/
-pyvenv.cfg
+/bin/
+/include/
+/lib/
+/lib64
+/share/
+/pyvenv.cfg
 __pycache__/
 build/
 dist/

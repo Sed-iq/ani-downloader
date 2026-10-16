@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The desktop icon's arrow into a tray (packaging/kotodl.svg), centred in the adaptive-icon safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group android:scaleX="1.1" android:scaleY="1.1" android:translateX="18.8" android:translateY="17.15">
+        <path android:fillColor="#0A246A" android:pathData="M26,12h12v18h9L32,46 17,30h9z"/>
+        <path android:fillColor="#000000" android:pathData="M14,50h36v5h-36z"/>
+    </group>
+</vector>
